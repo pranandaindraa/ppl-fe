@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daftar Mahasiswa</title>
+  <!-- Add Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container mt-2 shadow-lg rounded">
+    <h2 class="mb-4">Daftar Mahasiswa</h2>
+    <table class="table table-bordered" id="mahasiswaTable">
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Nama</th>
+          <th>NIM</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Data will be inserted here via JavaScript -->
+      </tbody>
+    </table>
+
+    <!-- Modal for KRS details -->
+    <div class="modal fade" id="krsModal" tabindex="-1" aria-labelledby="krsModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="krsModalLabel">Detail KRS Mahasiswa</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <h5>Data Matakuliah</h5>
+            <table class="table table-striped" id="matakuliahTable">
+              <thead>
+                <tr>
+                  <th>Mata Kuliah</th>
+                  <th>Semester</th>
+                  <th>SKS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Matakuliah data will be inserted here via JavaScript -->
+              </tbody>
+            </table>
+
+            <h5 class="mt-4">IPS dan IPK</h5>
+            <table class="table table-bordered" id="ipsIpkTable">
+              <thead>
+                <tr>
+                  <th>Semester</th>
+                  <th>IPS</th>
+                  <th>IPK</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- IPS and IPK data will be inserted here via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Bootstrap JS and Axios -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const mahasiswaTable = document.getElementById('mahasiswaTable').getElementsByTagName('tbody')[0];
+      const matakuliahTable = document.getElementById('matakuliahTable').getElementsByTagName('tbody')[0];
+      const ipsIpkTable = document.getElementById('ipsIpkTable').getElementsByTagName('tbody')[0];
+
+      let mahasiswaList = [];
+      let krsData = {};
+
+      // Fetch Mahasiswa Data
+      async function fetchMahasiswa() {
+        try {
+          const response = await axios.get('https://pplsemester7-b3d65daf7234.herokuapp.com/mahasiswa');
+          mahasiswaList = response.data;
+          renderMahasiswa();
+        } catch (error) {
+          console.error('Gagal mengambil data mahasiswa:', error);
+        }
+      }
+
+      // Render Mahasiswa List
+      function renderMahasiswa() {
+        mahasiswaList.forEach((mahasiswa, index) => {
+          const row = mahasiswaTable.insertRow();
+          row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${mahasiswa.nama}</td>
+            <td>${mahasiswa.nim}</td>
+            <td><button class="btn btn-primary" onclick="viewKRS('${mahasiswa.nim}')">Lihat KRS</button></td>
+          `;
+        });
+      }
+
+      // Fetch KRS Data based on NIM
+      async function viewKRS(nim) {
+        try {
+          const response = await axios.get(`https://pplsemester7-b3d65daf7234.herokuapp.com/ipk/${nim}`);
+          krsData = {
+            ips: response.data.ips.ips,
+            ipk: response.data.ipk,
+            matkul: response.data.ips.matakuliah,
+          };
+          renderKRS();
+          const modal = new bootstrap.Modal(document.getElementById('krsModal'));
+          modal.show();
+        } catch (error) {
+          console.error('Gagal mengambil data KRS:', error);
+        }
+      }
+
+      // Render KRS Data in Modal
+      function renderKRS() {
+        // Render Matakuliah Data
+        matakuliahTable.innerHTML = '';
+        krsData.matkul.forEach((matakuliah, semester) => {
+          const row = matakuliahTable.insertRow();
+          row.innerHTML = `
+            <td>${matakuliah.nama_matakuliah}</td>
+            <td>${semester}</td>
+            <td>${matakuliah.sks}</td>
+          `;
+        });
+
+        // Render IPS dan IPK Data
+        ipsIpkTable.innerHTML = '';
+        Object.keys(krsData.ips).forEach((semester) => {
+          const row = ipsIpkTable.insertRow();
+          row.innerHTML = `
+            <td>${semester}</td>
+            <td>${krsData.ips[semester]}</td>
+            <td>${krsData.ipk}</td>
+          `;
+        });
+      }
+
+      fetchMahasiswa();
+    });
+  </script>
+</body>
+</html>
