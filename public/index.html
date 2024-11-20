@@ -8,10 +8,10 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-  <div class="container mt-2 shadow-lg rounded">
+  <div class="container mt-5 shadow-lg rounded p-4">
     <h2 class="mb-4">Daftar Mahasiswa</h2>
-    <table class="table table-bordered" id="mahasiswaTable">
-      <thead>
+    <table class="table table-bordered table-hover" id="mahasiswaTable">
+      <thead class="table-light">
         <tr>
           <th>No</th>
           <th>Nama</th>
@@ -20,7 +20,7 @@
         </tr>
       </thead>
       <tbody>
-        <!-- Data will be inserted here via JavaScript -->
+        <!-- Data akan dimuat menggunakan JavaScript -->
       </tbody>
     </table>
 
@@ -33,9 +33,9 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <h5>Data Matakuliah</h5>
+            <h5>Data Mata Kuliah</h5>
             <table class="table table-striped" id="matakuliahTable">
-              <thead>
+              <thead class="table-dark text-light">
                 <tr>
                   <th>Mata Kuliah</th>
                   <th>Semester</th>
@@ -43,13 +43,13 @@
                 </tr>
               </thead>
               <tbody>
-                <!-- Matakuliah data will be inserted here via JavaScript -->
+                <!-- Matakuliah data akan dimuat di sini -->
               </tbody>
             </table>
 
             <h5 class="mt-4">IPS dan IPK</h5>
             <table class="table table-bordered" id="ipsIpkTable">
-              <thead>
+              <thead class="table-dark text-light">
                 <tr>
                   <th>Semester</th>
                   <th>IPS</th>
@@ -57,9 +57,13 @@
                 </tr>
               </thead>
               <tbody>
-                <!-- IPS and IPK data will be inserted here via JavaScript -->
+                <!-- Data IPS dan IPK akan dimuat di sini -->
               </tbody>
             </table>
+
+            <p id="errorMessage" class="text-danger mt-3 d-none">
+              Gagal memuat data. Silakan coba lagi.
+            </p>
           </div>
         </div>
       </div>
@@ -71,18 +75,21 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', () => {
       const mahasiswaTable = document.getElementById('mahasiswaTable').getElementsByTagName('tbody')[0];
       const matakuliahTable = document.getElementById('matakuliahTable').getElementsByTagName('tbody')[0];
       const ipsIpkTable = document.getElementById('ipsIpkTable').getElementsByTagName('tbody')[0];
+      const errorMessage = document.getElementById('errorMessage');
 
       let mahasiswaList = [];
       let krsData = {};
+      let matakuliahList = [];
 
-      // Fetch Mahasiswa Data
+      const API_BASE_URL = 'https://pplsemester7-b3d65daf7234.herokuapp.com';
+
       async function fetchMahasiswa() {
         try {
-          const response = await axios.get('https://pplsemester7-b3d65daf7234.herokuapp.com/mahasiswa');
+          const response = await axios.get(`${API_BASE_URL}/mahasiswa`);
           mahasiswaList = response.data;
           renderMahasiswa();
         } catch (error) {
@@ -90,59 +97,78 @@
         }
       }
 
-      // Render Mahasiswa List
       function renderMahasiswa() {
-        mahasiswaList.forEach((mahasiswa, index) => {
-          const row = mahasiswaTable.insertRow();
-          row.innerHTML = `
+        mahasiswaTable.innerHTML = mahasiswaList.map((mahasiswa, index) => `
+          <tr>
             <td>${index + 1}</td>
-            <td>${mahasiswa.nama}</td>
-            <td>${mahasiswa.nim}</td>
-            <td><button class="btn btn-primary" onclick="viewKRS('${mahasiswa.nim}')">Lihat KRS</button></td>
-          `;
+            <td>${mahasiswa.nama || 'Tidak diketahui'}</td>
+            <td>${mahasiswa.nim || 'Tidak tersedia'}</td>
+            <td>
+              <button class="btn btn-primary btn-sm" data-nim="${mahasiswa.nim}">
+                Lihat KRS
+              </button>
+            </td>
+          </tr>
+        `).join('');
+
+        mahasiswaTable.querySelectorAll('button[data-nim]').forEach(button => {
+          button.addEventListener('click', () => viewKRS(button.getAttribute('data-nim')));
         });
       }
 
-      // Fetch KRS Data based on NIM
       async function viewKRS(nim) {
         try {
-          const response = await axios.get(`https://pplsemester7-b3d65daf7234.herokuapp.com/ipk/${nim}`);
+          const response = await axios.get(`${API_BASE_URL}/ipk/${nim}`);
           krsData = {
-            ips: response.data.ips.ips,
-            ipk: response.data.ipk,
-            matkul: response.data.ips.matakuliah,
+            ips: response.data.ips.ips || {},
+            ipk: response.data.ipk || 'Tidak tersedia',
           };
+          matakuliahList = response.data.ips.matakuliah || [];
+          errorMessage.classList.add('d-none');
+          console.log(krsData.ips);
+          console.log(matakuliahList);
           renderKRS();
-          const modal = new bootstrap.Modal(document.getElementById('krsModal'));
-          modal.show();
+          new bootstrap.Modal(document.getElementById('krsModal')).show();
         } catch (error) {
           console.error('Gagal mengambil data KRS:', error);
+          errorMessage.classList.remove('d-none');
         }
       }
 
-      // Render KRS Data in Modal
       function renderKRS() {
-        // Render Matakuliah Data
         matakuliahTable.innerHTML = '';
-        krsData.matkul.forEach((matakuliah, semester) => {
+
+        // Periksa apakah data kosong
+        if (Object.keys(matakuliahList).length === 0) {
           const row = matakuliahTable.insertRow();
-          row.innerHTML = `
-            <td>${matakuliah.nama_matakuliah}</td>
-            <td>${semester}</td>
-            <td>${matakuliah.sks}</td>
-          `;
+          row.innerHTML = '<td colspan="3" class="text-center">Tidak ada data matakuliah</td>';
+          return;
+        }
+      
+        // Iterasi melalui objek matakuliahList
+        Object.keys(matakuliahList).forEach(key => {
+          const mataKuliahArray = matakuliahList[key];
+      
+          // Tambahkan baris untuk setiap matakuliah di dalam array
+          mataKuliahArray.forEach(matakuliah => {
+            const row = matakuliahTable.insertRow();
+            row.innerHTML = `
+              <td>${matakuliah.nama_matakuliah || 'Tidak diketahui'}</td>
+              <td>${matakuliah.sks || 0}</td>
+              <td>${matakuliah.nilai || '-'}</td>
+            `;
+          });
         });
 
-        // Render IPS dan IPK Data
-        ipsIpkTable.innerHTML = '';
-        Object.keys(krsData.ips).forEach((semester) => {
-          const row = ipsIpkTable.insertRow();
-          row.innerHTML = `
-            <td>${semester}</td>
-            <td>${krsData.ips[semester]}</td>
-            <td>${krsData.ipk}</td>
-          `;
-        });
+        ipsIpkTable.innerHTML = Object.keys(krsData.ips).length
+          ? Object.keys(krsData.ips).map(semester => `
+              <tr>
+                <td>${semester}</td>
+                <td>${krsData.ips[semester] ? parseFloat(krsData.ips[semester]).toFixed(2) : 'Tidak tersedia'}</td>
+                <td>${krsData.ipk ? parseFloat(krsData.ipk).toFixed(2) : 'Tidak tersedia'}</td>
+              </tr>
+            `).join('')
+          : '<tr><td colspan="3" class="text-center">Tidak ada data IPS/IPK</td></tr>';
       }
 
       fetchMahasiswa();
